@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using RoleBasedApplication.Entities;
 using RoleBasedApplication.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -13,17 +14,19 @@ namespace RoleBasedApplication.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        public static UserModel user = new UserModel();
+        private DataBaseContext _context;
         private readonly IConfiguration _configuration;
         private readonly IUserService _userService;
 
-        public AuthController(IConfiguration configuration, IUserService userService)
+        public AuthController(IConfiguration configuration, IUserService userService,
+            DataBaseContext dataBaseContext)
         {
             _configuration = configuration;
             _userService = userService;
+            _context = dataBaseContext;
         }
 
-        [HttpPost, Authorize]
+        [HttpGet("GetRole"), Authorize]
         public ActionResult<string> GetRole()
         {
             var userRole = _userService.getRole();
@@ -31,20 +34,34 @@ namespace RoleBasedApplication.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<ActionResult<UserModel>> Register(UserDto request)
+        public async Task<ActionResult<RegisterResponseDto>> Register(RegisterDto request)
         {
             CreatePasswordHash(request.Password, out byte[] passwordHash, out byte[] passwordSalt);
+            var user = new UserModel();
+            var userName = _context.Users.FirstOrDefault(u => u.Username.Equals(request.Username));
+            if(userName != null)
+            {
+                return BadRequest("User with user name {" + userName.Username + "} Already Exists");
+            }
             user.Username = request.Username;
             user.PasswordHash = passwordHash;
             user.PasswordSalt = passwordSalt;
-
-            return Ok(user);
+            user.Role = "User";
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+            return Ok(new RegisterResponseDto()
+            {
+                Username = user.Username,
+                Password = request.Password,
+                Role = user.Role
+            });
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<string>> Login(UserDto request)
+        public async Task<ActionResult<string>> Login(LoginDto request)
         {
-            if(!user.Username.Equals(request.Username))
+            var user = _context.Users.FirstOrDefault(u => u.Username.Equals(request.Username));
+            if(user == null)
             {
                 return BadRequest("User not found");
             }
@@ -61,9 +78,9 @@ namespace RoleBasedApplication.Controllers
         {
             List<Claim> claims = new List<Claim>
             {
+                new Claim(ClaimTypes.Role, user.Role),
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, "Admin"),
-        };
+            };
 
             var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(
                 _configuration.GetSection("AppSettings:Token").Value));

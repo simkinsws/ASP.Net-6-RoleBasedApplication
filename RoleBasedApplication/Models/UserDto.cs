@@ -1,8 +1,12 @@
-﻿namespace RoleBasedApplication.Models
+﻿using RoleBasedApplication.Entities;
+
+namespace RoleBasedApplication.Models
 {
     public class UserDto
     {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
+        public int Id { get; set; }
+        public string Username { get; set; } 
+        public string Role { get; set; }
+        public List<PostModel> Posts { get; set; }
     }
 }

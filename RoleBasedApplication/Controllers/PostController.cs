@@ -13,7 +13,6 @@ namespace RoleBasedApplication.Controllers
     public class PostController : ControllerBase
     {
 
-
         private DataBaseContext _context;
         private readonly IConfiguration _configuration;
         private readonly IUserService _userService;
@@ -49,6 +48,18 @@ namespace RoleBasedApplication.Controllers
         public async Task<ActionResult<List<PostDto>>> getAllPostsByUserId(int userId)
         {
             return Ok(await _userService.getAllPostsByUserId(userId));
+        }
+
+        [HttpGet("GetLatestPostsByUserName/{userName}")]
+        public async Task<ActionResult<List<PostDto>>> getLatestPostsByUserName(string userName)
+        {
+            return Ok(await _userService.getLatestPostsByUserName(userName));
+        }
+
+        [HttpGet("GetAllPostsByUserName/{userName}")]
+        public async Task<ActionResult<List<PostDto>>> getAllPostsByUserId(string userName)
+        {
+            return Ok(await _userService.getAllPostsByUserName(userName));
         }
     }
 }

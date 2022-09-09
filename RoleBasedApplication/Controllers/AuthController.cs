@@ -7,6 +7,7 @@ using RoleBasedApplication.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace RoleBasedApplication.Controllers
 {
@@ -17,13 +18,15 @@ namespace RoleBasedApplication.Controllers
         private DataBaseContext _context;
         private readonly IConfiguration _configuration;
         private readonly IUserService _userService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AuthController(IConfiguration configuration, IUserService userService,
+        public AuthController(IHttpContextAccessor httpContextAccessor, IConfiguration configuration, IUserService userService,
             DataBaseContext dataBaseContext)
         {
             _configuration = configuration;
             _userService = userService;
             _context = dataBaseContext;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         [HttpGet("GetRole"), Authorize]
@@ -31,6 +34,13 @@ namespace RoleBasedApplication.Controllers
         {
             var userRole = _userService.getRole();
             return Ok(userRole);
+        }
+
+        [HttpGet("GetUserName"), Authorize]
+        public async Task<ActionResult<string>> GetUserName()
+        {
+            var userName = await _userService.getUserName();
+            return Ok(userName);
         }
 
         [HttpPost("register")]
@@ -58,7 +68,7 @@ namespace RoleBasedApplication.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<string>> Login(LoginDto request)
+        public async Task<ActionResult<LoginResponseDto>> Login(LoginDto request)
         {
             var user = _context.Users.FirstOrDefault(u => u.Username.Equals(request.Username));
             if(user == null)
@@ -71,7 +81,66 @@ namespace RoleBasedApplication.Controllers
             }
 
             string token = CreateToken(user);
-            return Ok(token);
+            LoginResponseDto response = new LoginResponseDto()
+            {
+                Role = user.Role,
+                UserName = user.Username,
+                token = token
+            };
+            Response.Cookies.Append("Authorization", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Expires = DateTime.UtcNow.AddMinutes(30),
+                IsEssential = true,
+                SameSite = SameSiteMode.None,
+                Secure = true,
+            });
+            return Ok(response);
+        }
+
+
+        [HttpPost("Logout"), Authorize]
+        public IActionResult Logout()
+        {
+            Response.Cookies.Delete("Authorization");
+
+            return Ok(new
+            {
+                message = "you have been logged out succesfully"
+            });
+        }
+
+        [HttpGet("isUserAuthenticated"), Authorize]
+        public IActionResult isUserAuthenticated()
+        {
+            try
+            {
+                var jwt = Request.Cookies["Authorization"];
+
+
+                var loggedInUserName = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.Name);
+
+                var token = verify(jwt);
+
+                var claims = token.Claims;
+
+                var userNameToCheck = "";
+
+                foreach(var name in claims)
+                {
+                    if(name.Value == loggedInUserName)
+                    {
+                        userNameToCheck = name.Value;
+                    }
+                }
+
+                var user = _context.Users.Where(u => u.Username.Equals(userNameToCheck)).FirstOrDefault();
+
+                return Ok(user);
+            } catch(Exception e)
+            {
+                return Unauthorized();
+            }
         }
 
         private string CreateToken(UserModel user)
@@ -89,7 +158,7 @@ namespace RoleBasedApplication.Controllers
 
             var token = new JwtSecurityToken(
                 claims: claims,
-                expires: DateTime.Now.AddDays(1),
+                expires: DateTime.UtcNow.AddMinutes(30),
                 signingCredentials: creds);
 
             var jwt = new JwtSecurityTokenHandler().WriteToken(token);
@@ -114,6 +183,21 @@ namespace RoleBasedApplication.Controllers
                 var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
                 return computedHash.SequenceEqual(passwordHash);
             }
+        }
+
+        private JwtSecurityToken verify(string jwt)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(_configuration.GetSection("AppSettings:Token").Value);
+            tokenHandler.ValidateToken(jwt, new TokenValidationParameters()
+            {
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuerSigningKey = true,
+                ValidateIssuer = false,
+                ValidateAudience = false
+            }, out SecurityToken validatedToken);
+
+            return (JwtSecurityToken)validatedToken;
         }
     }
 }

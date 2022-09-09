@@ -14,8 +14,12 @@ builder.Services.AddCors(options =>
     options.AddPolicy(name: MyAllowSpecificOrigins,
         policy =>
         {
-            policy.WithOrigins("https://localhost:3000", "https://localhost:7095", "http://localhost:3000").AllowAnyHeader()
-                                                  .AllowAnyMethod();
+            policy.SetIsOriginAllowed(host => true)
+            .WithOrigins("https://localhost:3000", "https://localhost:7095", "http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+            
         });
 });
 
@@ -33,9 +37,9 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
     {
-        Description = "Standard Authorization header using the Bearer scheme (\"bearer {token}\")",
+        Description = "Standard authorization header using the Bearer scheme (\"bearer {token}\")",
         In = ParameterLocation.Header,
-        Name = "Authorization",
+        Name = "authorization",
         Type = SecuritySchemeType.ApiKey
     });
 
@@ -50,7 +54,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8
             .GetBytes(builder.Configuration.GetSection("AppSettings:Token").Value)),
             ValidateIssuer = false,
-            ValidateAudience = false
+            ValidateAudience = false,
+            ClockSkew = TimeSpan.Zero
         };
     });
 

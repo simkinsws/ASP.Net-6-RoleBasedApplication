@@ -35,10 +35,34 @@ namespace RoleBasedApplication.Services
 
         public async Task<List<PostDto>> getAllPostsByUserId(int userId)
         {
-            List <PostModel> postsModels = await _context.Posts.Where(u => u.UserId == userId).ToListAsync();
-            List<PostDto> postsDto = postsModels.ConvertAll(new Converter<PostModel, PostDto>(ConvertPostModelToPostDto));
+            List <PostModel> postsModels = await _context.Posts
+                .Where(u => u.UserId == userId).ToListAsync();
+            List<PostDto> postsDto = postsModels
+                .ConvertAll(new Converter<PostModel, PostDto>(ConvertPostModelToPostDto));
             return postsDto;
         }
+
+
+
+        public async Task<List<PostDto>> getAllPostsByUserName(string userName)
+        {
+            var user = await _context.Users.Where(u => u.Username == userName).FirstAsync();
+            var postsByUserName = await _context.Posts.Where(p => p.UserId == user.Id).ToListAsync();
+
+            List<PostDto> postsDto = postsByUserName
+                .ConvertAll(new Converter<PostModel, PostDto>(ConvertPostModelToPostDto));
+            return postsDto;
+        }
+
+        public async Task<List<PostDto>> getLatestPostsByUserName(string userName)
+        {
+            var user = await _context.Users.Where(u => u.Username == userName).FirstAsync();
+            var latestPostsByUserName = await _context.Posts.Where(p => p.UserId == user.Id)
+                .OrderByDescending(p => p.Id).Take(3).ToListAsync();
+
+            return latestPostsByUserName.ConvertAll(new Converter<PostModel, PostDto>(ConvertPostModelToPostDto));
+        }
+
         public async Task<PostDto> addPost(PostDto post)
         {
 
@@ -86,6 +110,16 @@ namespace RoleBasedApplication.Services
             if (_httpContextAccessor.HttpContext != null)
             {
                 result = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.Role);
+            }
+            return result;
+        }
+
+        public async Task<string> getUserName()
+        {
+            var result = string.Empty;
+            if (_httpContextAccessor.HttpContext != null)
+            {
+                result = _httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.Name);
             }
             return result;
         }

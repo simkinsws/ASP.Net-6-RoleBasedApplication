@@ -1,0 +1,1 @@
+server=DESKTOP-3BBO5V4;database=usermanegment;trusted_connection=true;integrated_iecurity=false;

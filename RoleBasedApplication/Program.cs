@@ -5,6 +5,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RoleBasedApplication.Entities;
 using Swashbuckle.AspNetCore.Filters;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Identity.Web;
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,6 +60,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero
         };
     });
+    
 
 var app = builder.Build();
 

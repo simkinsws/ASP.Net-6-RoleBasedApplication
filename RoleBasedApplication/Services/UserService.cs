@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MailKit.Net.Smtp;
+using Microsoft.EntityFrameworkCore;
+using MimeKit;
 using RoleBasedApplication.Entities;
 using RoleBasedApplication.Models;
 using System.Security.Claims;
@@ -92,6 +94,18 @@ namespace RoleBasedApplication.Services
                 await _context.Posts.AddAsync(newPost);
             }
             await _context.SaveChangesAsync();
+
+            var emailSender = new MimeMessage();
+            emailSender.From.Add(MailboxAddress.Parse("nir.bilchinski@gmail.com"));
+            emailSender.To.Add(MailboxAddress.Parse("nir.simkin@gmail.com"));
+            emailSender.Subject = $"new ticket {postToReturn.Id} was opened by {user.Username}";
+            emailSender.Body = new TextPart(MimeKit.Text.TextFormat.Html) { Text = postToReturn.ToString() };
+
+            using var smtp = new SmtpClient();
+            await smtp.ConnectAsync("smtp.gmail.com", 587, MailKit.Security.SecureSocketOptions.StartTlsWhenAvailable);
+            await smtp.AuthenticateAsync("nir.bilchinski@gmail.com", "Telran2020");
+            await smtp.SendAsync(emailSender);
+            await smtp.DisconnectAsync(true);
             return postToReturn;
         }
 
